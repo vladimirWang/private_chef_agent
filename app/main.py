@@ -17,6 +17,11 @@ app = FastAPI(
     version="0.1.0"
 )
 
+# 健康检查（供 docker healthcheck / 负载均衡探活）
+@app.get("/healthz", include_in_schema=False)
+async def healthz():
+    return {"status": "ok"}
+
 # 1. 配置跨域资源共享 (CORS)
 # 插件开发中，由于请求来自浏览器扩展环境，必须正确配置 CORS
 app.add_middleware(
