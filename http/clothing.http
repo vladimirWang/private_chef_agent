@@ -4,5 +4,13 @@ POST {{base}}/api/v1/clothing/upload
 content-type: application/json
 
 {
-    "filepath": "https://private-chef-agent.oss-cn-beijing.aliyuncs.com/clothing/1.jpg"
+    "filepath": "http://localhost:3000/static/uploaded/1777896596180-8b8dd06a-clash.txt"
+}
+
+### consult
+POST {{base}}/api/v1/clothing/consult
+content-type: application/json
+
+{
+    "query": "我体重178斤，尺码推荐"
 }

@@ -1,8 +1,8 @@
 from langchain_chroma import Chroma
 from langchain_community.embeddings import DashScopeEmbeddings
-import config_data as config
+from app.agents import config_data as config
 
-class VectorStore(object):
+class VectorStoreService(object):
     def __init__(self, embedding):
         self.embedding = embedding
         self.chroma = Chroma(

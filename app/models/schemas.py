@@ -10,3 +10,6 @@ class ChatRequest(BaseModel):
 
 class ClothingUploadRequest(BaseModel):
     filepath: str
+
+class ClothingConsultRequest(BaseModel):
+    question: str
