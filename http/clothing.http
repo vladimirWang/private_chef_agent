@@ -1,0 +1,8 @@
+@base=http://localhost:8001
+
+POST {{base}}/api/v1/clothing/upload
+content-type: application/json
+
+{
+    "filepath": "https://private-chef-agent.oss-cn-beijing.aliyuncs.com/clothing/1.jpg"
+}

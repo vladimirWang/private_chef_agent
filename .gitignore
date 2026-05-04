@@ -5,3 +5,9 @@
 **/__pycache__
 
 .DS_Store
+
+**/*.db
+**/*.db-shm
+**/*.db-wal
+
+app/agents/chroma_db/

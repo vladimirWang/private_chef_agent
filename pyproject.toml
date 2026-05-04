@@ -18,6 +18,10 @@ dependencies = [
     "aiomysql>=0.3.2",
     "grpcio>=1.80.0",
     "grpcio-tools>=1.80.0",
+    "langchain-text-splitters>=1.1.2",
+    "langchain-community>=0.4.1",
+    "langchain-chroma>=1.1.0",
+    "dashscope>=1.25.17",
 ]
 
 [[tool.uv.index]]

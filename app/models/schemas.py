@@ -7,3 +7,6 @@ class ChatRequest(BaseModel):
     message: str
     image_url: Optional[str] = None
     thread_id: str
+
+class ClothingUploadRequest(BaseModel):
+    filepath: str
