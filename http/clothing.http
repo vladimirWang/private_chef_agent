@@ -12,5 +12,5 @@ POST {{base}}/api/v1/clothing/consult
 content-type: application/json
 
 {
-    "query": "我体重178斤，尺码推荐"
+    "question": "我体重178斤，尺码推荐"
 }

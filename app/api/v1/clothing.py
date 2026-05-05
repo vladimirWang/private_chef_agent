@@ -1,14 +1,16 @@
+import asyncio
+import json
 from pathlib import Path
 from urllib.parse import urlparse
 
 import httpx
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from dotenv import load_dotenv
 
 from app.models.schemas import ClothingUploadRequest, ClothingConsultRequest
 from app.agents.knowledge_base import KnowledgeBase, get_string_md5
 from app.agents.rag import RagService
-
 load_dotenv()
 router = APIRouter()
 
@@ -60,9 +62,20 @@ async def upload_clothing(request: ClothingUploadRequest):
 @router.post("/clothing/consult")
 async def search_clothing(request: ClothingConsultRequest):
     query = request.question
+    # res = RagService().chain.invoke(query)
+    async def sse_chars():
+        for ch in query:
+            line = json.dumps(ch, ensure_ascii=False)
+            yield f"data: {line}\n\n".encode("utf-8")
+            await asyncio.sleep(1)
+        yield b'data: {"done": true}\n\n'
 
-    # kb = KnowledgeBase()
-    res = RagService().chain.invoke(query)
-    print("rag result: ", res)
-    # result = kb.search(query)
-    return {"message": "success", "data": res}
+    return StreamingResponse(
+        sse_chars(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )

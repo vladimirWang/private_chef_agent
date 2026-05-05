@@ -1,3 +1,5 @@
+import asyncio
+import json
 from pathlib import Path
 
 from langchain.chat_models import init_chat_model
@@ -58,6 +60,7 @@ def _get_agent():
         model_provider="openai",
         api_key=os.getenv("DASHSCOPE_API_KEY"),
         base_url=os.getenv("DASHSCOPE_BASE_URL"),
+        streaming=True,
     )
 
     _agent = create_agent(
@@ -67,6 +70,15 @@ def _get_agent():
         checkpointer=checkpointer,
     )
     return _agent
+
+async def sse_chars(query: str):
+    """按字符模拟 SSE 流式输出，与前端 fetch-event-source 解析的 data: JSON 一致。"""
+    for ch in query:
+        line = json.dumps(ch, ensure_ascii=False)
+        yield f"data: {line}\n\n".encode("utf-8")
+        await asyncio.sleep(1)
+    yield b'data: {"done": true}\n\n'
+
 
 async def search_recipes(prompt: str, image: str, thread_id: str):
     logger.info(f"[用户]: {prompt}, image: {image}, thread_id: {thread_id}")
@@ -91,9 +103,16 @@ async def search_recipes(prompt: str, image: str, thread_id: str):
             logger.info(f"chunk.content: {chunk.content}, metadata: {metadata}")
             if isinstance(chunk, AIMessageChunk) and chunk.content:
                 yield chunk.content
+        # async for chunk in sse_chars(prompt):
+        #     yield chunk
     except Exception as e:
         logger.error(f"\n[错误]: {str(e)}")
-        yield "信息检索失败, 试试着手动输入食物列表"
+        err = json.dumps(
+            {"error": "信息检索失败, 试试着手动输入食物列表"},
+            ensure_ascii=False,
+        )
+        yield f"data: {err}\n\n".encode("utf-8")
+        yield b'data: {"done": true}\n\n'
 
 
 def clear_messages(thread_id: str):

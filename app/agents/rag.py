@@ -6,9 +6,12 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
 from langchain_community.embeddings import DashScopeEmbeddings
+from dotenv import load_dotenv
 
 from app.agents import config_data as config
 from app.agents.vector_stores import VectorStoreService
+
+load_dotenv()
 
 def print_prompt(prompt):
     print("-"*10, prompt, "-"*10)
@@ -29,6 +32,7 @@ class RagService(object):
             model_provider="openai",
             api_key=os.getenv("DASHSCOPE_API_KEY"),
             base_url=os.getenv("DASHSCOPE_BASE_URL"),
+            streaming=True,
         )
         self.chain = self.__get_chain()
 

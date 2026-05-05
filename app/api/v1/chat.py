@@ -1,5 +1,5 @@
-from fastapi import APIRouter, HTTPException
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi import APIRouter
+from fastapi.responses import StreamingResponse
 
 from app.agents.private_chef import get_messages, clear_messages, search_recipes
 from app.models.schemas import ChatRequest
