@@ -13,3 +13,6 @@
 chroma_db/
 db/
 md5.txt
+
+chromadb/
+chat_history/
