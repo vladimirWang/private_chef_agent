@@ -1,16 +1,18 @@
 import asyncio
 import json
+import random
 from pathlib import Path
 from urllib.parse import urlparse
 
 import httpx
-from fastapi import APIRouter, HTTPException
-from fastapi.responses import StreamingResponse
 from dotenv import load_dotenv
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import JSONResponse, StreamingResponse
 
-from app.models.schemas import ClothingUploadRequest, ClothingConsultRequest
 from app.agents.knowledge_base import KnowledgeBase, get_string_md5
 from app.agents.rag import RagService
+from app.models.schemas import ClothingConsultRequest, ClothingUploadRequest
+
 load_dotenv()
 router = APIRouter()
 
@@ -53,25 +55,40 @@ async def upload_clothing(request: ClothingUploadRequest):
     except UnicodeDecodeError:
         text = raw.decode("utf-8", errors="replace")
 
-    md5_value = get_string_md5(text)
+    # md5_value = get_string_md5(text)
     kb = KnowledgeBase()
-    result = kb.upload_by_str(md5_value, filename=filename)
+    result = kb.upload_by_str(text, filename=filename)
     print("更新知识库结果: ", result)
-    return {"message": "success"}
+    return JSONResponse({"message": "文件上传成功", "data": {"md5": filename}})
+
+
+_STREAM_END = object()
+
+
+async def _clothing_consult_sse(query: str, session_config: dict):
+    """流式输出咨询结果；块与块之间随机等待 1～5 秒再推送，避免阻塞事件循环。"""
+    chain = RagService().chain
+    it = chain.stream({"input": query}, session_config)
+    first = True
+    while True:
+        chunk = await asyncio.to_thread(next, it, _STREAM_END)
+        if chunk is _STREAM_END:
+            break
+        text = chunk if isinstance(chunk, str) else str(chunk)
+        if not first:
+            await asyncio.sleep(random.uniform(1.0, 5.0))
+        first = False
+        line = json.dumps(text, ensure_ascii=False)
+        yield f"data: {line}\n\n".encode("utf-8")
+    yield b'data: {"done": true}\n\n'
+
 
 @router.post("/clothing/consult")
 async def search_clothing(request: ClothingConsultRequest):
     query = request.question
-    # res = RagService().chain.invoke(query)
-    async def sse_chars():
-        for ch in query:
-            line = json.dumps(ch, ensure_ascii=False)
-            yield f"data: {line}\n\n".encode("utf-8")
-            await asyncio.sleep(1)
-        yield b'data: {"done": true}\n\n'
-
+    session_config = {"configurable": {"session_id": "user01"}}
     return StreamingResponse(
-        sse_chars(),
+        _clothing_consult_sse(query, session_config),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

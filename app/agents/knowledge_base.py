@@ -1,32 +1,14 @@
-from gc import collect
+import copy
 import hashlib
 import os
-from app.agents import config_data as config
-from dotenv import load_dotenv
-from langchain_chroma import Chroma
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.embeddings import DashScopeEmbeddings
 from datetime import datetime
 
-load_dotenv()
-def get_string_md5(txt: str) -> str:
-    md5_obj = hashlib.md5()
-    md5_obj.update(txt.encode())
-    hash_code = md5_obj.hexdigest()
-    return hash_code
+from langchain_chroma import Chroma
+from langchain_community.embeddings import DashScopeEmbeddings
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-def check_md5(md5_value: str) -> bool:
-    if not os.path.exists(config.md5_path):
-        open(config.md5_path, "w").close()
-        return False
-    for line in open(config.md5_path, "r", encoding="utf-8").readlines():
-        if line.strip() == md5_value:
-            return True
-    return False
+import app.agents.config_data as config
 
-def save_md5(md5_value: str):
-    with open(config.md5_path, "a", encoding="utf-8") as f:
-        f.write(md5_value + "\n")
 
 class KnowledgeBase(object):
     def __init__(self):
@@ -36,38 +18,49 @@ class KnowledgeBase(object):
             persist_directory=config.persist_directory,
         )
         self.splitter = RecursiveCharacterTextSplitter(
-            separators=config.separators,
-            chunk_size=config.chunk_size,
             chunk_overlap=config.chunk_overlap,
+            chunk_size=config.chunk_size,
             length_function=len,
+            separators=config.separators,
         )
 
-    def upload_by_str(self, text: str, filename: str) -> str:
-        md5_value = get_string_md5(text)
+    def upload_by_str(self, data: str, filename: str) -> str:
+        md5_value = get_string_md5(data)
         if check_md5(md5_value):
-            return "[跳过]内容已存在"
-        knowledge_chunks = []
-        if len(text) > config.chunk_size:
-            knowledge_chunks = self.splitter.split_text(text)
+            return "[跳过]已存在于知识库中"
+        chunks = []
+        if len(data) > config.chunk_overlap:
+            chunks = self.splitter.split_text(data)
         else:
-            knowledge_chunks = [text]
-            
+            chunks = [data]
         metadata = {
-            "operator": "user",
             "create_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "source": filename
+            "source": filename,
+            "operator": "user01",
         }
-        metadata_list = [metadata] * len(knowledge_chunks)
-        print(type(metadata_list))
-        for i in metadata_list:
-            print(i)
-
         self.chroma.add_texts(
-            texts=knowledge_chunks,
-            metadatas=[metadata for _ in range(len(knowledge_chunks))],
-        )        
-        save_md5(text)
-        return "[成功]内容已保存"
-if __name__ == "__main__":
-    kb = KnowledgeBase()
-    kb.upload_by_str("hello world", "test.txt")
+            chunks, metadatas=[copy.deepcopy(metadata) for _ in range(len(chunks))]
+        )
+        save_md5(md5_value)
+        return "[成功]已保存至知识库中"
+
+
+def save_md5(md5_value: str):
+    with open(config.md5_path, "a", encoding="utf-8") as f:
+        f.write(md5_value + "\n")
+
+
+def check_md5(md5_value: str) -> bool:
+    if not os.path.exists(config.md5_path):
+        open(config.md5_path, "w", encoding="utf-8").close()
+        return False
+    for line in open(config.md5_path, "r", encoding="utf-8").readlines():
+        if line.strip() == md5_value:
+            return True
+    return False
+
+
+def get_string_md5(data: str, encoding="utf-8"):
+    md5_obj = hashlib.md5()
+    md5_obj.update(data.encode(encoding))
+    return md5_obj.hexdigest()
