@@ -2,16 +2,19 @@ syntax = "proto3";
 
 package privatechef.agent;
 
-// 供 private_chef_server 调用：仅携带用户 ID，agent 返回确认消息。
+// 根据 question 走 RAG 流式生成；响应为 server stream。
 service AgentUserService {
-  rpc PingUser (PingUserRequest) returns (PingUserResponse);
+  rpc PingUser (PingUserRequest) returns (stream PingUserChunk);
 }
 
 message PingUserRequest {
   int32 user_id = 1;
-  string question = 3;
+  string question = 2;
 }
 
-message PingUserResponse {
-  string message = 1;
+message PingUserChunk {
+  // 单段文本（与 FastAPI clothing SSE 中单帧 JSON 字符串语义一致）
+  string chunk = 1;
+  // 为 true 时表示流结束，chunk 可忽略
+  bool done = 2;
 }

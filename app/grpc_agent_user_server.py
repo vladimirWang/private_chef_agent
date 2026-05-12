@@ -1,4 +1,4 @@
-"""供 private_chef_server 调用的 gRPC：请求仅含 user_id，响应 message 为 ok。"""
+"""供 private_chef_server 调用的 gRPC：PingUser 按 question 走 RAG 流式返回。"""
 
 import logging
 import os
@@ -7,6 +7,7 @@ from concurrent import futures
 
 import grpc
 
+from app.agents.rag import RagService
 from app.common.logger import setup_logging
 from app.grpc_generated import agent_user_pb2, agent_user_pb2_grpc
 
@@ -16,16 +17,38 @@ logger = logging.getLogger("personal_chief.grpc_agent_user")
 class AgentUserServicer(agent_user_pb2_grpc.AgentUserServiceServicer):
     def PingUser(self, request, context):
         uid = int(request.user_id)
-        return agent_user_pb2.PingUserResponse(message=f"ok {uid}")
+        question = (request.question or "").strip()
+        if not question:
+            context.abort(grpc.StatusCode.INVALID_ARGUMENT, "question 不能为空")
+
+        session_config = {"configurable": {"session_id": f"user_{uid}"}}
+        try:
+            chain = RagService().chain
+            it = chain.stream({"input": question}, session_config)
+            for chunk in it:
+                if not context.is_active():
+                    return
+                text = chunk if isinstance(chunk, str) else str(chunk)
+                yield agent_user_pb2.PingUserChunk(chunk=text, done=False)
+            yield agent_user_pb2.PingUserChunk(chunk="", done=True)
+        except grpc.RpcError:
+            raise
+        except Exception as e:
+            logger.exception("PingUser RAG 流失败")
+            context.abort(grpc.StatusCode.INTERNAL, str(e))
 
 
 def _add_agent_user_servicer(servicer: AgentUserServicer, server: grpc.Server) -> None:
-    """仅注册 generic handler；生成代码里的 add_registered_method_handlers 会导致部分客户端路由失败。"""
+    if not hasattr(agent_user_pb2, "PingUserChunk"):
+        raise RuntimeError(
+            "agent_user_pb2 缺少 PingUserChunk（proto 已改为流式）。"
+            "请在 agent 根目录执行: ./scripts/gen_grpc_python.sh 后重启服务。"
+        )
     rpc_method_handlers = {
-        "PingUser": grpc.unary_unary_rpc_method_handler(
+        "PingUser": grpc.unary_stream_rpc_method_handler(
             servicer.PingUser,
             request_deserializer=agent_user_pb2.PingUserRequest.FromString,
-            response_serializer=agent_user_pb2.PingUserResponse.SerializeToString,
+            response_serializer=agent_user_pb2.PingUserChunk.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
