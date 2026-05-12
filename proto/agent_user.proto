@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package privatechef.agent;
+
+// 供 private_chef_server 调用：仅携带用户 ID，agent 返回确认消息。
+service AgentUserService {
+  rpc PingUser (PingUserRequest) returns (PingUserResponse);
+}
+
+message PingUserRequest {
+  int32 user_id = 1;
+}
+
+message PingUserResponse {
+  string message = 1;
+}
