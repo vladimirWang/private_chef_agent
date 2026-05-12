@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x10\x61gent_user.proto\x12\x11privatechef.agent\"\"\n\x0fPingUserRequest\x12\x0f\n\x07user_id\x18\x01 \x01(\x05\"#\n\x10PingUserResponse\x12\x0f\n\x07message\x18\x01 \x01(\t2g\n\x10\x41gentUserService\x12S\n\x08PingUser\x12\".privatechef.agent.PingUserRequest\x1a#.privatechef.agent.PingUserResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x10\x61gent_user.proto\x12\x11privatechef.agent\"4\n\x0fPingUserRequest\x12\x0f\n\x07user_id\x18\x01 \x01(\x05\x12\x10\n\x08question\x18\x03 \x01(\t\"#\n\x10PingUserResponse\x12\x0f\n\x07message\x18\x01 \x01(\t2g\n\x10\x41gentUserService\x12S\n\x08PingUser\x12\".privatechef.agent.PingUserRequest\x1a#.privatechef.agent.PingUserResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -32,9 +32,9 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'agent_user_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_PINGUSERREQUEST']._serialized_start=39
-  _globals['_PINGUSERREQUEST']._serialized_end=73
-  _globals['_PINGUSERRESPONSE']._serialized_start=75
-  _globals['_PINGUSERRESPONSE']._serialized_end=110
-  _globals['_AGENTUSERSERVICE']._serialized_start=112
-  _globals['_AGENTUSERSERVICE']._serialized_end=215
+  _globals['_PINGUSERREQUEST']._serialized_end=91
+  _globals['_PINGUSERRESPONSE']._serialized_start=93
+  _globals['_PINGUSERRESPONSE']._serialized_end=128
+  _globals['_AGENTUSERSERVICE']._serialized_start=130
+  _globals['_AGENTUSERSERVICE']._serialized_end=233
 # @@protoc_insertion_point(module_scope)

@@ -9,6 +9,7 @@ service AgentUserService {
 
 message PingUserRequest {
   int32 user_id = 1;
+  string question = 3;
 }
 
 message PingUserResponse {

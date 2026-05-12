@@ -1,4 +1,6 @@
+import logging
 import os
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
@@ -12,10 +14,38 @@ from app.api.v1 import clothing
 # 初始化日志配置
 setup_logging()
 
+_log = logging.getLogger("personal_chief")
+
+
+def _agent_user_grpc_disabled() -> bool:
+    v = os.environ.get("DISABLE_AGENT_USER_GRPC", "").strip().lower()
+    return v in ("1", "true", "yes", "on")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    grpc_server = None
+    if not _agent_user_grpc_disabled():
+        try:
+            from app.grpc_agent_user_server import start_agent_user_grpc_in_thread
+
+            grpc_server = start_agent_user_grpc_in_thread()
+        except Exception:
+            _log.exception(
+                "AgentUser gRPC 启动失败（常见原因: 端口被占用）。"
+                "可设环境变量 DISABLE_AGENT_USER_GRPC=1 仅起 HTTP，或单独运行 python -m app.grpc_agent_user_server"
+            )
+            raise
+    yield
+    if grpc_server is not None:
+        grpc_server.stop(grace=5)
+
+
 app = FastAPI(
     title="Personal Chief API",
     description="私厨",
-    version="0.1.0"
+    version="0.1.0",
+    lifespan=lifespan,
 )
 
 # 健康检查（供 docker healthcheck / 负载均衡探活）
