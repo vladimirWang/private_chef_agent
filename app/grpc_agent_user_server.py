@@ -60,8 +60,9 @@ def _add_agent_user_servicer(servicer: AgentUserServicer, server: grpc.Server) -
 def _build_agent_user_server() -> tuple[grpc.Server, str]:
     port = os.environ.get("PRIVATE_CHEF_AGENT_USER_GRPC_PORT", "50052")
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=8))
-    _add_agent_user_servicer(AgentUserServicer(), server)
-    listen_addr = f"0.0.0.0:{port}"
+    # _add_agent_user_servicer(AgentUserServicer(), server)
+    agent_user_pb2_grpc.add_AgentUserServiceServicer_to_server(AgentUserServicer(), server)
+    listen_addr = f"[::]:{port}"
     server.add_insecure_port(listen_addr)
     return server, listen_addr
 
@@ -71,12 +72,12 @@ def start_agent_user_grpc_in_thread() -> grpc.Server:
     server, listen_addr = _build_agent_user_server()
     server.start()
     logger.info("AgentUserService gRPC listening on %s", listen_addr)
-
-    threading.Thread(
-        target=server.wait_for_termination,
-        name="grpc-AgentUser",
-        daemon=True,
-    ).start()
+    server.wait_for_termination()
+    # threading.Thread(
+    #     target=server.wait_for_termination,
+    #     name="grpc-AgentUser",
+    #     daemon=True,
+    # ).start()
     return server
 
 
