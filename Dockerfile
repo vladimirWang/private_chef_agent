@@ -1,5 +1,9 @@
 FROM python:3.13-slim
 
+# 构建阶段避免 uv 等待交互；Python 无缓冲便于日志
+ENV CI=1 \
+    PYTHONUNBUFFERED=1
+
 # 与根目录 docker-compose 的 volume ./private_chef_agent:/app 一致
 WORKDIR /app
 
@@ -21,7 +25,6 @@ COPY . ./
 RUN bash ./gen_proto.sh
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
     HOST=0.0.0.0 \
     PORT=8001
 
