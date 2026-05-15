@@ -10,7 +10,7 @@ from app.api.v1 import chat
 from app.api.v1 import oss
 from app.common.logger import setup_logging
 from app.api.v1 import clothing
-# from app.grpc_agent_user_server import serve
+from app.grpc_agent_user_server import serve
 
 # 初始化日志配置
 setup_logging()
@@ -46,7 +46,7 @@ app = FastAPI(
     title="Personal Chief API",
     description="私厨",
     version="0.1.0",
-    # lifespan=lifespan,
+    lifespan=lifespan,
 )
 
 # 健康检查（供 docker healthcheck / 负载均衡探活）
@@ -93,6 +93,6 @@ async def serve_frontend(path: str):
 
 if __name__ == "__main__":
     import uvicorn
-    # serve()
+    serve()
     # 启动命令：python -m app.main
     uvicorn.run("app.main:app", host="127.0.0.1", port=8001, reload=True)
