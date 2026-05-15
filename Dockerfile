@@ -22,7 +22,9 @@ RUN uv sync --frozen --no-dev
 
 COPY . ./
 
-# RUN bash ./gen_proto.sh
+RUN bash ./gen_proto.sh
+
+CMD ["echo", "-----------------gen_proto.sh done-----------------"]
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     HOST=0.0.0.0 \
