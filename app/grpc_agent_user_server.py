@@ -68,16 +68,15 @@ def _build_agent_user_server() -> tuple[grpc.Server, str]:
 
 
 def start_agent_user_grpc_in_thread() -> grpc.Server:
-    """在同进程内启动 gRPC；在后台线程中阻塞 wait_for_termination，返回 server 供 stop(grace)。"""
+    """在同进程内启动 gRPC；在后台线程里 wait_for_termination，主线程立即返回供 uvicorn lifespan yield。"""
     server, listen_addr = _build_agent_user_server()
     server.start()
     logger.info("AgentUserService gRPC listening on %s", listen_addr)
-    server.wait_for_termination()
-    # threading.Thread(
-    #     target=server.wait_for_termination,
-    #     name="grpc-AgentUser",
-    #     daemon=True,
-    # ).start()
+    threading.Thread(
+        target=server.wait_for_termination,
+        name="grpc-AgentUser",
+        daemon=True,
+    ).start()
     return server
 
 
