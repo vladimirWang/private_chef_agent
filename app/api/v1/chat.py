@@ -61,3 +61,7 @@ async def fileUpload(thread_id: str):
     # 清空历史消息
     clear_messages(thread_id)
     return {"success": True}
+
+@router.get("/chat/test")
+async def test():
+    return {"message": "ok"}
