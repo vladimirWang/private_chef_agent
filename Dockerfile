@@ -1,6 +1,11 @@
 FROM python:3.13-slim
 
+# 与根目录 docker-compose 的 volume ./private_chef_agent:/app 一致
 WORKDIR /app
+
+# gen_proto.sh 使用 -I../private_chef_server/proto（相对本目录的上级目录）
+# build context 仅为 agent 目录时，proto 由 Compose 的 additional_contexts: server_proto 注入
+COPY --from=server_proto / /private_chef_server/proto
 
 # 使用 uv + uv.lock 做可复现安装
 RUN pip install --no-cache-dir \
@@ -11,7 +16,9 @@ RUN pip install --no-cache-dir \
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev
 
-COPY . .
+COPY . ./
+
+RUN bash ./gen_proto.sh
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
