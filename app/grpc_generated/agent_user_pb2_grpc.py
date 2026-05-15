@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-from . import agent_user_pb2 as agent__user__pb2
+import agent_user_pb2 as agent__user__pb2
 
 GRPC_GENERATED_VERSION = '1.80.0'
 GRPC_VERSION = grpc.__version__
@@ -26,7 +26,7 @@ if _version_not_supported:
 
 
 class AgentUserServiceStub(object):
-    """供 private_chef_server 调用：仅携带用户 ID，agent 返回确认消息。
+    """根据 question 走 RAG 流式生成；响应为 server stream。
     """
 
     def __init__(self, channel):
@@ -35,15 +35,15 @@ class AgentUserServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.PingUser = channel.unary_unary(
+        self.PingUser = channel.unary_stream(
                 '/privatechef.agent.AgentUserService/PingUser',
                 request_serializer=agent__user__pb2.PingUserRequest.SerializeToString,
-                response_deserializer=agent__user__pb2.PingUserResponse.FromString,
+                response_deserializer=agent__user__pb2.PingUserChunk.FromString,
                 _registered_method=True)
 
 
 class AgentUserServiceServicer(object):
-    """供 private_chef_server 调用：仅携带用户 ID，agent 返回确认消息。
+    """根据 question 走 RAG 流式生成；响应为 server stream。
     """
 
     def PingUser(self, request, context):
@@ -55,10 +55,10 @@ class AgentUserServiceServicer(object):
 
 def add_AgentUserServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'PingUser': grpc.unary_unary_rpc_method_handler(
+            'PingUser': grpc.unary_stream_rpc_method_handler(
                     servicer.PingUser,
                     request_deserializer=agent__user__pb2.PingUserRequest.FromString,
-                    response_serializer=agent__user__pb2.PingUserResponse.SerializeToString,
+                    response_serializer=agent__user__pb2.PingUserChunk.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -69,7 +69,7 @@ def add_AgentUserServiceServicer_to_server(servicer, server):
 
  # This class is part of an EXPERIMENTAL API.
 class AgentUserService(object):
-    """供 private_chef_server 调用：仅携带用户 ID，agent 返回确认消息。
+    """根据 question 走 RAG 流式生成；响应为 server stream。
     """
 
     @staticmethod
@@ -83,12 +83,12 @@ class AgentUserService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(
+        return grpc.experimental.unary_stream(
             request,
             target,
             '/privatechef.agent.AgentUserService/PingUser',
             agent__user__pb2.PingUserRequest.SerializeToString,
-            agent__user__pb2.PingUserResponse.FromString,
+            agent__user__pb2.PingUserChunk.FromString,
             options,
             channel_credentials,
             insecure,
