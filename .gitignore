@@ -16,3 +16,5 @@ md5.txt
 
 chromadb/
 chat_history/
+
+app/grpc_generated/
