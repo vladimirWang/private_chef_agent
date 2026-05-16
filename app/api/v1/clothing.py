@@ -59,7 +59,7 @@ async def upload_clothing(request: ClothingUploadRequest):
     kb = KnowledgeBase()
     result = kb.upload_by_str(text, filename=filename)
     print("更新知识库结果: ", result)
-    return JSONResponse({"message": "文件上传成功", "data": {"md5": filename}})
+    return JSONResponse({"message": "文件上传成功", "data": {"filename": filename}})
 
 
 _STREAM_END = object()
