@@ -1,5 +1,6 @@
 """供 private_chef_server 调用的 gRPC：PingUser 按 question 走 RAG 流式返回。"""
 
+import ast
 import logging
 import os
 import threading
@@ -10,11 +11,39 @@ import grpc
 from app.agents.rag import RagService
 from app.common.logger import setup_logging
 from app.grpc_generated import agent_user_pb2, agent_user_pb2_grpc
+from app.agents.knowledge_base import KnowledgeBase
+from app.common.reader import basename_from_filepath, read_filepath_bytes_sync
 
 logger = logging.getLogger("personal_chief.grpc_agent_user")
 
-
 class AgentUserServicer(agent_user_pb2_grpc.ChatServiceServicer):
+    def UpdateKnowledge(self, request, context):
+        filepath = request.filepath
+        logger.info("-----Received UpdateKnowledge request with filepath: %s", filepath)
+        if not filepath:
+            context.abort(grpc.StatusCode.INVALID_ARGUMENT, "filepath 不能为空")
+
+        try:
+            raw = read_filepath_bytes_sync(filepath)
+            logger.info(
+                "UpdateKnowledge Read %d bytes from filepath, preview: %r",
+                len(raw),
+                raw[:100],
+            )
+            # content_bytes = ast.literal_eval(raw)
+            # decoded_content = content_bytes.decode('utf-8')
+            # logger.info("UpdateKnowledge complete content: %s", decoded_content)
+            text = raw.decode("utf-8", errors="replace")
+            filename = basename_from_filepath(filepath)
+            msg = KnowledgeBase().upload_by_str(text, filename=filename)
+            return agent_user_pb2.UpdateKnowledgeResp(message=msg or "更新知识成功")
+        except (OSError, ValueError) as e:
+            logger.warning("UpdateKnowledge invalid filepath: %s", e)
+            context.abort(grpc.StatusCode.INVALID_ARGUMENT, str(e))
+        except Exception:
+            logger.exception("Failed to update knowledge from filepath: %s", filepath)
+            context.abort(grpc.StatusCode.INTERNAL, "更新知识库失败")
+            
     def Consult(self, request, context):
         uid = int(request.user_id)
         question = (request.question or "").strip()
@@ -22,6 +51,11 @@ class AgentUserServicer(agent_user_pb2_grpc.ChatServiceServicer):
             context.abort(grpc.StatusCode.INVALID_ARGUMENT, "question 不能为空")
 
         session_config = {"configurable": {"session_id": f"user_{uid}"}}
+        logger.info(
+            "-----Received Consult request from user_id: %s with question: %s",
+            uid,
+            question,
+        )
         try:
             chain = RagService().chain
             it = chain.stream({"input": question}, session_config)

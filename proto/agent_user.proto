@@ -1,10 +1,13 @@
 syntax = "proto3";
 
-package privatechef.agent;
+package agent;
 
 // 根据 question 走 RAG 流式生成；响应为 server stream。
 service ChatService {
+  // 流式问答
   rpc Consult (ConsultReq) returns (stream ConsultResp);
+  // 更新知识库
+  rpc UpdateKnowledge (UpdateKnowledgeReq) returns (UpdateKnowledgeResp);
 }
 
 message ConsultReq {
@@ -17,4 +20,12 @@ message ConsultResp {
   string chunk = 1;
   // 为 true 时表示流结束，chunk 可忽略
   bool done = 2;
+}
+
+message UpdateKnowledgeReq {
+  string filepath = 1;
+}
+
+message UpdateKnowledgeResp {
+  string message = 1;
 }

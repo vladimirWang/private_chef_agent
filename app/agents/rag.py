@@ -63,7 +63,7 @@ class RagService(object):
                 | RunnableLambda(format_func),
             }
             | RunnableLambda(format_prompt)
-            | RunnableLambda(print_prompt)
+            # | RunnableLambda(print_prompt)
             | self.prompt_template
             | self.chat_model
             | StrOutputParser()
@@ -76,3 +76,11 @@ class RagService(object):
             history_messages_key="history",
         )
         return conversation_chain
+
+if __name__ == "__main__":
+    rag = RagService()
+    session_config = {"configurable": {"session_id": "user_1"}}
+    result = rag.chain.invoke({"input": "什么是RAG？"}, session_config)
+    print("最终结果.length: ", type(result), len(result))
+    # for message in result['messages']:
+    #     print("遍历输出: ", message['role'], message['content'])
