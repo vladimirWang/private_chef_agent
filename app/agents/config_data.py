@@ -9,4 +9,4 @@ separators = ["?", ".", "!", "？", "。", "！"]
 
 chat_model_name = "qwen3-max"
 
-search_kwargs = 2
+search_kwargs = 6

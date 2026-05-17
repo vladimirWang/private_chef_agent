@@ -1,9 +1,19 @@
 import asyncio
+import re
 from pathlib import Path
 from urllib.parse import urlparse
 
 import httpx
 from fastapi import HTTPException
+
+# 本地上传 objectKey：{timestamp}-{uuid8}-{原始文件名}
+_STORAGE_OBJECT_KEY_RE = re.compile(r"^\d+-[0-9a-f]{8}-(.+)$", re.IGNORECASE)
+
+
+def logical_filename_from_storage_name(name: str) -> str:
+    """从带时间戳的存储文件名还原用户原始文件名（如 尺码推荐.txt）。"""
+    m = _STORAGE_OBJECT_KEY_RE.match(name)
+    return m.group(1) if m else name
 
 
 def basename_from_filepath(filepath: str) -> str:

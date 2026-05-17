@@ -36,6 +36,7 @@ class AgentUserServicer(agent_user_pb2_grpc.ChatServiceServicer):
             text = raw.decode("utf-8", errors="replace")
             filename = basename_from_filepath(filepath)
             msg = KnowledgeBase().upload_by_str(text, filename=filename)
+            logger.info("UpdateKnowledge result: %s", msg)
             return agent_user_pb2.UpdateKnowledgeResp(message=msg or "更新知识成功")
         except (OSError, ValueError) as e:
             logger.warning("UpdateKnowledge invalid filepath: %s", e)

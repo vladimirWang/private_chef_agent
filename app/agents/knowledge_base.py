@@ -8,6 +8,7 @@ from langchain_community.embeddings import DashScopeEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 import app.agents.config_data as config
+from app.common.reader import logical_filename_from_storage_name
 
 
 class KnowledgeBase(object):
@@ -24,10 +25,24 @@ class KnowledgeBase(object):
             separators=config.separators,
         )
 
+    def _delete_by_logical_source(self, logical_source: str) -> int:
+        """删除同一逻辑文件的历史向量（含旧版带时间戳的 source）。"""
+        batch = self.chroma._collection.get(include=["metadatas"])
+        ids = batch.get("ids") or []
+        metas = batch.get("metadatas") or []
+        to_delete: list[str] = []
+        for doc_id, meta in zip(ids, metas):
+            src = (meta or {}).get("source") or ""
+            if logical_filename_from_storage_name(src) == logical_source:
+                to_delete.append(doc_id)
+        if to_delete:
+            self.chroma.delete(ids=to_delete)
+        return len(to_delete)
+
     def upload_by_str(self, data: str, filename: str) -> str:
-        md5_value = get_string_md5(data)
-        if check_md5(md5_value):
-            return "[跳过]已存在于知识库中"
+        logical_source = logical_filename_from_storage_name(filename)
+        removed = self._delete_by_logical_source(logical_source)
+
         chunks = []
         if len(data) > config.chunk_overlap:
             chunks = self.splitter.split_text(data)
@@ -35,13 +50,15 @@ class KnowledgeBase(object):
             chunks = [data]
         metadata = {
             "create_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "source": filename,
+            "source": logical_source,
             "operator": "user01",
         }
         self.chroma.add_texts(
             chunks, metadatas=[copy.deepcopy(metadata) for _ in range(len(chunks))]
         )
-        save_md5(md5_value)
+        save_md5(get_string_md5(data))
+        if removed:
+            return f"[成功]已更新知识库（替换 {removed} 条旧记录）"
         return "[成功]已保存至知识库中"
 
 
