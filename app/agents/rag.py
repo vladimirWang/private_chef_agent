@@ -8,7 +8,8 @@ from langchain_core.runnables import RunnableLambda, RunnablePassthrough
 from langchain_core.runnables.history import RunnableWithMessageHistory
 
 import app.agents.config_data as config
-from app.agents.file_history_store import get_history
+# from app.agents.file_history_store import get_history
+from app.agents.sqlalchemy_history_store import get_history
 from app.agents.vector_stores import VectorStore
 
 
