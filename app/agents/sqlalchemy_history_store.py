@@ -6,16 +6,20 @@
 运行：cd private_chef_agent && ./run-sqlalchemy-postgres-chat-demo.sh
 """
 
+import logging
 import os
 from datetime import datetime
+from typing import Optional
+from uuid import UUID
 
 from langchain_community.chat_models.tongyi import ChatTongyi
 from langchain_core.chat_history import BaseChatMessageHistory
 from langchain_core.messages import BaseMessage, message_to_dict, messages_from_dict
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables.history import RunnableWithMessageHistory
-from sqlalchemy import BigInteger, DateTime, Text, create_engine, delete, func, select
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import BigInteger, DateTime, Integer, create_engine, delete, select
+from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import (
     DeclarativeBase,
     Mapped,
@@ -27,44 +31,78 @@ SESSION_ID = "demo_session_1"
 MODEL_NAME = "qwen3-max"
 
 
-# def _pg_url() -> str:
-#     dsn = (
-#         os.getenv("PG_DSN", "postgresql://root:123456@127.0.0.1:5432/assistant")
-#         or ""
-#     ).strip()
-#     if dsn.startswith("postgresql://"):
-#         return dsn.replace("postgresql://", "postgresql+psycopg://", 1)
-#     return dsn
+def _now() -> datetime:
+    return datetime.now()
+
 
 PG_URL = os.getenv("SQLALCHEMY_DATABASE_URL")
 
 engine = create_engine(PG_URL, pool_pre_ping=True)
+logger = logging.getLogger("personal_chief.sqlalchemy_history")
 
 
 class Base(DeclarativeBase):
     pass
 
 
+class ChatSession(Base):
+    __tablename__ = "ChatSession"
+
+    id: Mapped[str] = mapped_column(PG_UUID(as_uuid=False), primary_key=True)
+    user_id: Mapped[int] = mapped_column("userId", Integer, nullable=False)
+
+
 class AgentChatMessage(Base):
+    """映射 Prisma 管理的 agent_chat_messages；外键由数据库约束，不在 ORM 里声明 FK。"""
+
     __tablename__ = "agent_chat_messages"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    session_id: Mapped[str] = mapped_column(Text, nullable=False, index=True)
+    user_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    session_id: Mapped[str] = mapped_column(
+        PG_UUID(as_uuid=False),
+        nullable=False,
+        index=True,
+    )
     payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
+        DateTime(timezone=False),
+        name="createdAt",
         nullable=False,
-        server_default=func.now(),
+        default=_now,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False),
+        name="updatedAt",
+        nullable=False,
+        default=_now,
+        onupdate=_now,
+    )
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=False),
+        name="deletedAt",
+        nullable=True,
     )
 
 
-def init_db() -> None:
-    Base.metadata.create_all(engine)
+def _coerce_session_id(session_id: str) -> str:
+    """校验并规范化 UUID 字符串，与 PostgreSQL uuid 列一致。"""
+    return str(UUID(session_id))
+
+
+def _user_id_for_session(db: Session, session_id: str) -> int:
+    sid = _coerce_session_id(session_id)
+    user_id = db.scalar(
+        select(ChatSession.user_id).where(ChatSession.id == sid)
+    )
+    if user_id is None:
+        raise ValueError(f"ChatSession 不存在: {sid}")
+    return user_id
 
 
 class SqlAlchemyPostgresChatMessageHistory(BaseChatMessageHistory):
     def __init__(self, session_id: str):
-        self.session_id = session_id
+        self.session_id = _coerce_session_id(session_id)
 
     @property
     def messages(self) -> list[BaseMessage]:
@@ -78,14 +116,26 @@ class SqlAlchemyPostgresChatMessageHistory(BaseChatMessageHistory):
 
     def add_messages(self, messages: list[BaseMessage]) -> None:
         with Session(engine) as db:
-            for m in messages:
-                db.add(
-                    AgentChatMessage(
-                        session_id=self.session_id,
-                        payload=message_to_dict(m),
+            try:
+                user_id = _user_id_for_session(db, self.session_id)
+                for m in messages:
+                    db.add(
+                        AgentChatMessage(
+                            user_id=user_id,
+                            session_id=self.session_id,
+                            payload=message_to_dict(m),
+                        )
                     )
+                db.commit()
+            except IntegrityError as e:
+                db.rollback()
+                logger.warning(
+                    "对话历史未写入（session_id=%s）: %s",
+                    self.session_id,
+                    e.orig,
                 )
-            db.commit()
+            except ValueError as e:
+                logger.warning("对话历史未写入: %s", e)
 
     def clear(self) -> None:
         with Session(engine) as db:
@@ -116,15 +166,3 @@ def build_chain():
         input_messages_key="input",
         history_messages_key="history",
     )
-
-
-# if __name__ == "__main__":
-#     # init_db()  # 表已由 psycopg 版创建时可注释；全新库时取消注释
-#     chain = build_chain()
-#     cfg = {"configurable": {"session_id": SESSION_ID}}
-
-#     r1 = chain.invoke({"input": "你好，记住我叫小明"}, cfg)
-#     print("Q1:", r1.content)
-
-#     r2 = chain.invoke({"input": "我叫什么？"}, cfg)
-#     print("Q2:", r2.content)

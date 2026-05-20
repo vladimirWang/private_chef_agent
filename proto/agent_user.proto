@@ -8,11 +8,30 @@ service ChatService {
   rpc Consult (ConsultReq) returns (stream ConsultResp);
   // 更新知识库
   rpc UpdateKnowledge (UpdateKnowledgeReq) returns (UpdateKnowledgeResp);
+
+  // 获取对话历史
+  rpc LoadChatHistory (LoadChatHistoryReq) returns (LoadChatHistoryResp);
+}
+
+message LoadChatHistoryReq {
+  string session_id = 1;
+}
+
+// 单条消息（一轮里的一条）
+message ChatHistoryMessage {
+  string role = 1;         // "user" | "assistant" | "system"
+  string content = 2;      // 正文
+  int64 id = 3;            // 可选：库表主键，便于排查/分页
+  int64 created_at_ms = 4; // 可选：Unix 毫秒，展示时间线、排序
+}
+message LoadChatHistoryResp {
+  repeated ChatHistoryMessage messages = 1;
 }
 
 message ConsultReq {
   int32 user_id = 1;
   string question = 2;
+  string session_id = 3;
 }
 
 message ConsultResp {

@@ -13,10 +13,63 @@ from app.common.logger import setup_logging
 from app.grpc_generated import agent_user_pb2, agent_user_pb2_grpc
 from app.agents.knowledge_base import KnowledgeBase
 from app.common.reader import basename_from_filepath, read_filepath_bytes_sync
+from app.agents.pg_history_helper import get_role, load_rows
+from langchain_core.messages import messages_from_dict
 
 logger = logging.getLogger("personal_chief.grpc_agent_user")
 
 class AgentUserServicer(agent_user_pb2_grpc.ChatServiceServicer):
+    def LoadChatHistory(self, request, context):
+        session_id = request.session_id
+        logger.info("-----Received LoadChatHistory request with session_id: %s", session_id)
+        if not session_id:
+            context.abort(grpc.StatusCode.INVALID_ARGUMENT, "session_id 不能为空")
+        rows = load_rows(session_id)
+        proto_messages = []
+        messages = messages_from_dict([r.payload for r in rows])
+
+        for row, msg in zip(rows, messages):
+            # created_ms = 1000
+            if row.created_at is not None:
+                created_ms = int(row.created_at.timestamp() * 1000)
+            proto_messages.append(
+                agent_user_pb2.ChatHistoryMessage(
+                    role=get_role(msg),
+                    content=msg.content,
+                    id=row.id,
+                    created_at_ms=created_ms,
+                )
+            )
+            # created_at_ms = row.created_at.strftime("%Y-%m-%d %H:%M:%S") if row.created_at else ""
+            
+            # print("for loop msg: ", type(msg), msg.content, label)
+            # with st.chat_message(get_role(msg)):
+            #     if label:
+            #         st.caption(f"id={row.id} · {label}")
+            #     st.markdown(msg.content)
+
+        # print("debug l2: ", type(l2), l2)
+        # for row in rows:
+        #     print("debug row: ", type(row.payload))
+        #     msgs = messages_from_dict([row.payload])
+        #     # # 一行 DB 记录 = 一条对话消息
+        #     # msg = messages_from_dict([row.payload])[0]
+        #     # content = msg.content or ""
+        #     # if not content:
+        #     #     continue
+        #     # created_ms = 0
+        #     # if row.created_at is not None:
+        #     #     created_ms = int(row.created_at.timestamp() * 1000)
+        #     # proto_messages.append(
+        #     #     agent_user_pb2.ChatHistoryMessage(
+        #     #         role=get_role(msg),       # human→user, ai→assistant
+        #     #         content=content,
+        #     #         id=row.id,
+        #     #         created_at_ms=created_ms,
+        #     #     )
+        #     # )
+        return agent_user_pb2.LoadChatHistoryResp(messages=proto_messages)
+
     def UpdateKnowledge(self, request, context):
         filepath = request.filepath
         logger.info("-----Received UpdateKnowledge request with filepath: %s", filepath)
@@ -48,13 +101,17 @@ class AgentUserServicer(agent_user_pb2_grpc.ChatServiceServicer):
     def Consult(self, request, context):
         uid = int(request.user_id)
         question = (request.question or "").strip()
+        session_id = (request.session_id or "").strip()
         if not question:
             context.abort(grpc.StatusCode.INVALID_ARGUMENT, "question 不能为空")
+        if not session_id:
+            context.abort(grpc.StatusCode.INVALID_ARGUMENT, "session_id 不能为空")
 
-        session_config = {"configurable": {"session_id": f"user_{uid}"}}
+        session_config = {"configurable": {"session_id": session_id}}
         logger.info(
-            "-----Received Consult request from user_id: %s with question: %s",
+            "-----Received Consult request user_id=%s session_id=%s question=%s",
             uid,
+            session_id,
             question,
         )
         try:
