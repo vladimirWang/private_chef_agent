@@ -1,6 +1,6 @@
 """
 极简 Demo：SQLAlchemy + PostgreSQL 存对话 + ChatTongyi
-（与 postgres_history_store.py 行为一致，共用同一张表 agent_chat_messages）
+（与 postgres_history_store.py 行为一致，共用 ruoyi-backend 管理的 agent_chat_message 表）
 
 前置：PG_DSN、DASHSCOPE_API_KEY 写在 private_chef_agent/.env.dev
 运行：cd private_chef_agent && ./run-sqlalchemy-postgres-chat-demo.sh
@@ -46,16 +46,16 @@ class Base(DeclarativeBase):
 
 
 class ChatSession(Base):
-    __tablename__ = "ChatSession"
+    __tablename__ = "chat_session"
 
     id: Mapped[str] = mapped_column(PG_UUID(as_uuid=False), primary_key=True)
-    user_id: Mapped[int] = mapped_column("userId", Integer, nullable=False)
+    user_id: Mapped[int] = mapped_column(Integer, nullable=False)
 
 
 class AgentChatMessage(Base):
-    """映射 Prisma 管理的 agent_chat_messages；外键由数据库约束，不在 ORM 里声明 FK。"""
+    """映射 ruoyi-backend 管理的 agent_chat_message 表。"""
 
-    __tablename__ = "agent_chat_messages"
+    __tablename__ = "agent_chat_message"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
@@ -67,20 +67,17 @@ class AgentChatMessage(Base):
     payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=False),
-        name="createdAt",
         nullable=False,
         default=_now,
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=False),
-        name="updatedAt",
         nullable=False,
         default=_now,
         onupdate=_now,
     )
     deleted_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=False),
-        name="deletedAt",
         nullable=True,
     )
 

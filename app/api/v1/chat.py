@@ -2,7 +2,7 @@ from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from starlette.responses import JSONResponse
 
-from app.agents.private_chef import clear_messages, get_messages, search_recipes
+from app.agents.pg_history_helper import clear_messages, get_messages
 from app.agents.rag import RagService
 from app.models.schemas import ChatRequest
 

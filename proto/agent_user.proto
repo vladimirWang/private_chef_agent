@@ -6,8 +6,6 @@ package agent;
 service ChatService {
   // 流式问答
   rpc Consult (ConsultReq) returns (stream ConsultResp);
-  // 更新知识库
-  rpc UpdateKnowledge (UpdateKnowledgeReq) returns (UpdateKnowledgeResp);
 
   // 获取对话历史
   rpc LoadChatHistory (LoadChatHistoryReq) returns (LoadChatHistoryResp);
