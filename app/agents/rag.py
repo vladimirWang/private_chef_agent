@@ -8,8 +8,7 @@ from langchain_core.runnables import RunnableLambda, RunnablePassthrough
 from langchain_core.runnables.history import RunnableWithMessageHistory
 
 import app.agents.config_data as config
-# from app.agents.file_history_store import get_history
-from app.agents.sqlalchemy_history_store import get_history
+from app.agents.sqlalchemy_history_store import get_rag_history
 from app.agents.vector_stores import VectorStore
 
 
@@ -23,10 +22,14 @@ class RagService(object):
     def __init__(self):
         self.prompt_template = ChatPromptTemplate.from_messages(
             [
-                ("system", "以我提供的参考资料为主， 如下: {context}"),
-                ("system", "这是聊天历史消息， 如下"),
+                (
+                    "system",
+                    "你是尺码咨询助手。回答必须严格依据下方【参考资料】，不得编造参考资料中未出现的尺码或区间。"
+                    "若参考资料为「无相关参考资料」，请明确告知用户知识库暂无匹配信息，不要猜测或使用通用尺码表。"
+                    "忽略对话历史中可能存在的过时 assistant 回答。\n\n【参考资料】\n{context}",
+                ),
                 MessagesPlaceholder("history"),
-                ("human", "请回答用户提问: {input}"),
+                ("human", "{input}"),
             ],
         )
         self.chat_model = ChatTongyi(model=config.chat_model_name)
@@ -72,7 +75,7 @@ class RagService(object):
 
         conversation_chain = RunnableWithMessageHistory(
             chain,
-            get_history,
+            get_rag_history,
             input_messages_key="input",
             history_messages_key="history",
         )

@@ -106,7 +106,10 @@ class SqlAlchemyPostgresChatMessageHistory(BaseChatMessageHistory):
         with Session(engine) as db:
             rows = db.scalars(
                 select(AgentChatMessage)
-                .where(AgentChatMessage.session_id == self.session_id)
+                .where(
+                    AgentChatMessage.session_id == self.session_id,
+                    AgentChatMessage.deleted_at.is_(None),
+                )
                 .order_by(AgentChatMessage.id)
             ).all()
         return messages_from_dict([row.payload for row in rows])
@@ -146,6 +149,29 @@ class SqlAlchemyPostgresChatMessageHistory(BaseChatMessageHistory):
 
 def get_history(session_id: str) -> SqlAlchemyPostgresChatMessageHistory:
     return SqlAlchemyPostgresChatMessageHistory(session_id)
+
+
+class RagChatMessageHistory(BaseChatMessageHistory):
+    """RAG 推理时只注入近期用户消息，避免旧 AI 回答中的错误事实污染生成。"""
+
+    def __init__(self, session_id: str, max_user_turns: int = 2):
+        self._inner = SqlAlchemyPostgresChatMessageHistory(session_id)
+        self._max_user_turns = max_user_turns
+
+    @property
+    def messages(self) -> list[BaseMessage]:
+        user_msgs = [m for m in self._inner.messages if m.type == "human"]
+        return user_msgs[-self._max_user_turns :]
+
+    def add_messages(self, messages: list[BaseMessage]) -> None:
+        self._inner.add_messages(messages)
+
+    def clear(self) -> None:
+        self._inner.clear()
+
+
+def get_rag_history(session_id: str) -> RagChatMessageHistory:
+    return RagChatMessageHistory(session_id)
 
 
 def build_chain():

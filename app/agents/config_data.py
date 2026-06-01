@@ -1,7 +1,8 @@
 md5_path = "./md5.txt"
 collection_name = "ragPractice"
 
-persist_directory = "./chromadb"
+embedding_model = "text-embedding-v4"
+embedding_length = 1024
 
 chunk_overlap = 100
 chunk_size = 1000

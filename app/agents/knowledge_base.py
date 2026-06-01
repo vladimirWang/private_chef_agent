@@ -3,21 +3,16 @@ import hashlib
 import os
 from datetime import datetime
 
-from langchain_chroma import Chroma
-from langchain_community.embeddings import DashScopeEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 import app.agents.config_data as config
+from app.agents.pgvector_store import delete_by_logical_source, get_pgvector_store
 from app.common.reader import logical_filename_from_storage_name
 
 
 class KnowledgeBase(object):
     def __init__(self):
-        self.chroma = Chroma(
-            collection_name=config.collection_name,
-            embedding_function=DashScopeEmbeddings(model="text-embedding-v4"),
-            persist_directory=config.persist_directory,
-        )
+        self.vector_store = get_pgvector_store()
         self.splitter = RecursiveCharacterTextSplitter(
             chunk_overlap=config.chunk_overlap,
             chunk_size=config.chunk_size,
@@ -26,20 +21,13 @@ class KnowledgeBase(object):
         )
 
     def _delete_by_logical_source(self, logical_source: str) -> int:
-        """删除同一逻辑文件的历史向量（含旧版带时间戳的 source）。"""
-        batch = self.chroma._collection.get(include=["metadatas"])
-        ids = batch.get("ids") or []
-        metas = batch.get("metadatas") or []
-        to_delete: list[str] = []
-        for doc_id, meta in zip(ids, metas):
-            src = (meta or {}).get("source") or ""
-            if logical_filename_from_storage_name(src) == logical_source:
-                to_delete.append(doc_id)
-        if to_delete:
-            self.chroma.delete(ids=to_delete)
-        return len(to_delete)
+        return delete_by_logical_source(self.vector_store, logical_source)
 
-    def upload_by_str(self, data: str, filename: str) -> str:
+    def delete_by_filename(self, filename: str) -> int:
+        logical_source = logical_filename_from_storage_name(filename)
+        return self._delete_by_logical_source(logical_source)
+
+    def upload_by_str(self, data: str, filename: str, operator: str = "system") -> str:
         logical_source = logical_filename_from_storage_name(filename)
         removed = self._delete_by_logical_source(logical_source)
 
@@ -51,9 +39,9 @@ class KnowledgeBase(object):
         metadata = {
             "create_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "source": logical_source,
-            "operator": "user01",
+            "operator": operator,
         }
-        self.chroma.add_texts(
+        self.vector_store.add_texts(
             chunks, metadatas=[copy.deepcopy(metadata) for _ in range(len(chunks))]
         )
         save_md5(get_string_md5(data))
