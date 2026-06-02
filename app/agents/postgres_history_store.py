@@ -25,13 +25,13 @@ SESSION_ID = "demo_session_1"
 MODEL_NAME = "qwen3-max"
 
 DDL = """
-CREATE TABLE IF NOT EXISTS agent_chat_messages (
+CREATE TABLE IF NOT EXISTS agent_chat_message (
     id BIGSERIAL PRIMARY KEY,
     session_id TEXT NOT NULL,
     payload JSONB NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS idx_agent_chat_session ON agent_chat_messages(session_id);
+CREATE INDEX IF NOT EXISTS idx_agent_chat_session ON agent_chat_message(session_id);
 """
 
 
@@ -49,7 +49,7 @@ class PostgresChatMessageHistory(BaseChatMessageHistory):
     def messages(self) -> list[BaseMessage]:
         with psycopg.connect(PG_DSN) as conn:
             rows = conn.execute(
-                "SELECT payload FROM agent_chat_messages WHERE session_id = %s ORDER BY id",
+                "SELECT payload FROM agent_chat_message WHERE session_id = %s ORDER BY id",
                 (self.session_id,),
             ).fetchall()
         return messages_from_dict([row[0] for row in rows])
@@ -58,7 +58,7 @@ class PostgresChatMessageHistory(BaseChatMessageHistory):
         with psycopg.connect(PG_DSN) as conn:
             for m in messages:
                 conn.execute(
-                    "INSERT INTO agent_chat_messages (session_id, payload) VALUES (%s, %s)",
+                    "INSERT INTO agent_chat_message (session_id, payload) VALUES (%s, %s)",
                     (self.session_id, json.dumps(message_to_dict(m))),
                 )
             conn.commit()
@@ -66,7 +66,7 @@ class PostgresChatMessageHistory(BaseChatMessageHistory):
     def clear(self) -> None:
         with psycopg.connect(PG_DSN) as conn:
             conn.execute(
-                "DELETE FROM agent_chat_messages WHERE session_id = %s",
+                "DELETE FROM agent_chat_message WHERE session_id = %s",
                 (self.session_id,),
             )
             conn.commit()
